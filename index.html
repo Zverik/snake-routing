@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head>
+<title>Open Snake Routing Machine</title>
+<meta charset="utf-8">
+<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.css" />
+<script src="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.js"></script>
+<script src="leaflet-routing-machine.min.js"></script>
+<style>html, body, #map { height: 100%; margin: 0; }</style>
+</head>
+<body onload="javascript:init();">
+<div id="map"></div>
+<script type="text/javascript">
+var STEP_SIZE = 3; // in pixels
+var LINE_LENGTH = 120; // in pixels
+var QUERY_HEADSTART = 5; // in seconds
+var MOVE_INTERVAL = 20; // in milliseconds
+var SPEED_PX_PER_SEC = 300;
+
+var map;
+var route = [[55.8, 37.51]];
+var head = 0;
+var line;
+var router;
+var querying = false;
+var LINE_LENGTH_STEPS = Math.floor(LINE_LENGTH / STEP_SIZE);
+
+function init() {
+  map = L.map('map').setView([55.8, 37.52], 13);
+  L.tileLayer('http://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  line = L.polyline([route[0]], {color: 'red', weight: 3 }).addTo(map);
+  router = L.Routing.osrm({ serviceUrl: 'http://router.project-osrm.org/viaroute' });
+  advance();
+}
+
+function advance() {
+  if (head + 1 < route.length) {
+    head++;
+    line.addLatLng(route[head]);
+    if (head >= LINE_LENGTH_STEPS)
+      line.spliceLatLngs(0, 1);
+  }
+  if (!querying && route.length - head < QUERY_HEADSTART / MOVE_INTERVAL * 1000)
+    extendRoute();
+  setTimeout(advance, STEP_SIZE / SPEED_PX_PER_SEC * 1000);
+}
+
+function extendRoute() {
+  var b = map.getBounds();
+  var lat = Math.random() * (b.getNorth() - b.getSouth()) + b.getSouth();
+  var lon = Math.random() * (b.getEast() - b.getWest()) + b.getWest();
+  queryRoute([lat, lon]);
+  if (route.length > LINE_LENGTH_STEPS * 5 && head > LINE_LENGTH_STEPS + 1) {
+    route.splice(0, head - LINE_LENGTH_STEPS - 1);
+    head = LINE_LENGTH_STEPS + 1;
+  }
+}
+
+function routeCallback(err, routes) {
+  if (routes && routes.length ) {
+    var from = route[route.length - 1];
+    var i, j, steps, delta, nxt, from_px, to_px;
+    var p = L.point(from[1], from[0]);
+    for (i = 1; i < routes[0].coordinates.length; i++) {
+      nxt = routes[0].coordinates[i];
+      from_px = map.latLngToLayerPoint([p.y, p.x]);
+      to_px = map.latLngToLayerPoint(nxt);
+      steps = Math.max(1, Math.ceil(from_px.distanceTo(to_px) / STEP_SIZE));
+      delta = L.point((nxt.lng - p.x) / steps, (nxt.lat - p.y) / steps);
+      for (j = 0; j < steps; j++) {
+        p = p.add(delta);
+        route.push([p.y, p.x]);
+      }
+    }
+  }
+  querying = false;
+}
+
+function queryRoute(to) {
+  querying = true;
+  var from = route[route.length - 1];
+  router.route(
+      [
+        {latLng: L.latLng(from[0], from[1])},
+        {latLng: L.latLng(to[0], to[1])}
+      ], routeCallback, null,
+      { geometryOnly: true, z: map.getZoom() }
+  );
+}
+</script>
+</body>
