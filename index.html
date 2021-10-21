@@ -30,7 +30,7 @@ function init() {
   map = L.map('map').setView([55.8, 37.52], 13);
   L.tileLayer('http://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
   line = L.polyline([route[0]], {color: 'red', weight: 3 }).addTo(map);
-  router = L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' });
+  router = L.Routing.osrmv1({ serviceUrl: 'https://routing.openstreetmap.de/routed-car/route/v1' });
   advance();
 }
 
